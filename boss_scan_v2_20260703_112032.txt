@@ -1,0 +1,61 @@
+BOSS OS SECURITY SCAN REPORT v2.0 — VERIFIED FINDINGS
+Team ZeroDay — 2026-07-03 11:20:32.494264
+==============================================================
+
+CONFIRMED BUGS: 3
+CRITICAL:0 HIGH:2 MEDIUM:1
+TOTAL POINTS: 21
+
+==============================================================
+CONFIRMED FINDINGS:
+
+Bug #1 — HIGH — PS-08
+Title: Audit Daemon (auditd) Not Installed on Government OS
+Description: auditd is the standard Linux security audit framework. Its absence on a government OS means no kernel-level security events are being recorded — file access, privilege escalation, authentication failures all go completely unlogged.
+Evidence:
+Verified:
+systemctl status auditd → "Unit not found"
+which auditd → (not found)
+dpkg -l auditd → (not installed)
+Fix: Install and enable:
+apt install auditd audispd-plugins
+systemctl enable --now auditd
+--------------------------------------------------------------
+
+Bug #2 — HIGH — PS-08
+Title: Authentication Log File Missing (/var/log/auth.log)
+Description: The authentication log file is absent. All login attempts, sudo usage, and authentication events are unrecorded. An attacker can attempt unlimited logins with no evidence.
+Evidence:
+Verified:
+ls /var/log/auth.log
+ls: cannot access: No such file or directory
+Fix: Ensure rsyslog has: auth,authpriv.* /var/log/auth.log
+Then restart: systemctl restart rsyslog
+--------------------------------------------------------------
+
+Bug #3 — MEDIUM — PS-02
+Title: Password Maximum Age Excessively Long (PASS_MAX_DAYS=99999)
+Description: Passwords are allowed to remain unchanged for 99999 days (273 years). Government security policy requires password rotation at least every 90 days.
+Evidence:
+Verified:
+grep PASS_MAX_DAYS /etc/login.defs
+PASS_MAX_DAYS 99999
+
+Impact: A compromised password remains valid for 99999 days.
+Fix: Set PASS_MAX_DAYS 90 in /etc/login.defs
+--------------------------------------------------------------
+
+==============================================================
+NEEDS MANUAL VERIFICATION:
+
+PS-02: No Account Lockout Policy
+How to verify: Start SSH (systemctl start ssh) then try 10 wrong passwords — if no lockout occurs, this is a HIGH finding.
+
+PS-02: PAM nullok Enabled — Risk if Empty Accounts Created
+How to verify: Check if any accounts exist without passwords.
+Try: sudo passwd -S <username> for each user
+
+PS-07: Backup Files Found — Manual Content Review Needed
+How to verify: Check each file for passwords/credentials:
+cat <filename> | grep -i password
+
