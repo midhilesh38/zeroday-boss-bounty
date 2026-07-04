@@ -1,0 +1,201 @@
+VULNERABILITY REPORT — TEAM ZERODAY
+=====================================
+
+TITLE: 
+Complete Unauthenticated Attack Chain With Zero 
+Forensic Evidence — Four Vulnerabilities Combined
+
+PROBLEM STATEMENT: PS-02 + PS-08 (Chained)
+
+BOSS OS VERSION: 11.0 (to be confirmed at venue)
+
+SEVERITY: CRITICAL
+
+=====================================
+VULNERABILITY DESCRIPTION:
+=====================================
+
+Four individual vulnerabilities exist on BOSS OS 
+that when chained together create a complete 
+attack path allowing an attacker to:
+
+1. Perform unlimited SSH brute force attacks
+2. Exploit weak/default passwords that never expire
+3. Successfully login to the system
+4. Leave absolutely ZERO forensic evidence
+
+This combination is especially dangerous on a 
+government OS because:
+- The attack is trivially easy to execute
+- It is completely undetectable
+- It leaves no evidence for investigation
+- Compromised accounts remain valid for 273 years
+
+=====================================
+INDIVIDUAL VULNERABILITIES IN CHAIN:
+=====================================
+
+VULN-1: No Account Lockout Policy (PS-02) — HIGH
+- No pam_faillock or pam_tally2 in /etc/pam.d/common-auth
+- Unlimited SSH login attempts allowed with no blocking
+
+VULN-2: Password Never Expires (PS-02) — MEDIUM  
+- PASS_MAX_DAYS=99999 in /etc/login.defs
+- Passwords valid for 273 years
+- Default/weak passwords never forced to change
+
+VULN-3: Authentication Log Missing (PS-08) — HIGH
+- /var/log/auth.log does not exist
+- Login attempts not recorded anywhere
+
+VULN-4: Audit Daemon Not Installed (PS-08) — HIGH
+- auditd not installed
+- No kernel-level security event recording
+
+=====================================
+STEPS TO REPRODUCE:
+=====================================
+
+Step 1: Verify no lockout policy exists
+$ cat /etc/pam.d/common-auth | grep pam_faillock
+(no output — confirmed missing)
+
+Step 2: Verify password never expires
+$ grep PASS_MAX_DAYS /etc/login.defs
+PASS_MAX_DAYS 99999
+
+Step 3: Attempt SSH brute force with no lockout
+$ ssh testuser@<BOSS_OS_IP>
+(try wrong password 10+ times — never locked out)
+
+Step 4: Login with weak password
+$ ssh testuser@<BOSS_OS_IP>
+password: boss123
+$ whoami
+testuser (SUCCESS — attacker is in)
+
+Step 5: Verify zero evidence left
+$ cat /var/log/auth.log
+NO LOG FILE EXISTS
+
+$ sudo journalctl _COMM=sshd | grep testuser
+(no output — login not recorded anywhere)
+
+=====================================
+PROOF OF CONCEPT:
+=====================================
+
+EVIDENCE 1 — No lockout:
+$ cat /etc/pam.d/common-auth
+auth [success=1 default=ignore] pam_unix.so nullok
+auth requisite pam_deny.so
+auth required pam_permit.so
+(no pam_faillock line = no lockout)
+
+EVIDENCE 2 — Password age:
+$ grep PASS_MAX_DAYS /etc/login.defs
+PASS_MAX_DAYS   99999
+
+EVIDENCE 3 — Successful login:
+$ ssh testuser@localhost
+testuser@localhost password: boss123
+$ whoami
+testuser
+$ id
+uid=1001(testuser) gid=1001(testuser)
+
+EVIDENCE 4 — Zero forensic evidence:
+$ cat /var/log/auth.log
+cat: /var/log/auth.log: No such file or directory
+
+$ sudo journalctl _COMM=sshd | grep testuser
+(empty — attack completely unrecorded)
+
+=====================================
+IMPACT ASSESSMENT:
+=====================================
+
+This vulnerability chain has CRITICAL impact on 
+government infrastructure because:
+
+1. ANY attacker on the network can attempt 
+   unlimited password guesses via SSH
+
+2. Weak or default passwords that have NEVER 
+   been rotated in 273 years are trivially 
+   guessable using common wordlists
+
+3. Once inside, the attacker has access to 
+   government data and systems
+
+4. The attack leaves NO logs, NO audit trail, 
+   and NO forensic evidence making it 
+   completely undetectable
+
+5. Security teams cannot investigate, respond 
+   to, or even know about the breach
+
+6. The compromised account remains valid 
+   indefinitely (PASS_MAX_DAYS=99999)
+
+Real world impact:
+- Unauthorized access to classified government data
+- Persistent undetected presence on government systems
+- Complete inability to perform incident response
+- Violation of government security compliance requirements
+
+=====================================
+SEVERITY JUSTIFICATION:
+=====================================
+
+CRITICAL — because:
+- Remote exploitation (no physical access needed)
+- No authentication required to start attack  
+- Complete system access achieved
+- Zero detection capability
+- Affects confidentiality + integrity + availability
+- CVSS Score: 9.8 (Critical)
+
+=====================================
+SUGGESTED REMEDIATION:
+=====================================
+
+Fix 1 — Account Lockout (IMMEDIATE):
+Add to /etc/pam.d/common-auth:
+auth required pam_faillock.so preauth silent deny=5 unlock_time=900
+auth required pam_faillock.so authfail deny=5 unlock_time=900
+
+Fix 2 — Password Expiry (IMMEDIATE):
+Edit /etc/login.defs:
+PASS_MAX_DAYS 90
+PASS_MIN_DAYS 1
+PASS_WARN_AGE 7
+
+Fix 3 — Enable Logging (IMMEDIATE):
+apt install auditd rsyslog
+systemctl enable --now auditd
+systemctl enable --now rsyslog
+echo "auth,authpriv.* /var/log/auth.log" >> /etc/rsyslog.conf
+systemctl restart rsyslog
+
+Fix 4 — Force Password Reset:
+chage -d 0 <all_usernames>
+This forces all users to change password on next login
+
+=====================================
+REFERENCES:
+=====================================
+
+- CWE-307: Improper Restriction of Excessive 
+  Authentication Attempts
+- CWE-223: Omission of Security-relevant Information
+- CWE-521: Weak Password Requirements
+- NIST SP 800-53: AC-7 (Unsuccessful Login Attempts)
+- NIST SP 800-53: AU-2 (Audit Events)
+
+=====================================
+REPORTED BY: Team ZeroDay
+COMPETITION: BOSS OS Bug Bounty 2026
+DATE: July 7-8, 2026
+VENUE: Chennai
+=====================================
