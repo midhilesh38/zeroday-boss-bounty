@@ -1,0 +1,288 @@
+# TEAM ZERODAY — PORTABLE AI PROMPT LIBRARY
+### BOSS OS Bug Bounty 2026 — Works with Claude, ChatGPT, or any AI
+
+**HOW TO USE THIS FILE:**
+If your AI chat runs out of messages, open a NEW chat (any AI — Claude, ChatGPT, Gemini)
+and paste the relevant prompt below. Fill in the [BRACKETS] with your actual findings.
+Every prompt is self-contained — the AI doesn't need any prior conversation history.
+
+---
+
+## PROMPT 1 — VERIFY IF A FINDING IS A REAL BUG
+
+```
+I am participating in a Linux security bug bounty competition 
+(BOSS OS, a Debian-based government OS). I found something 
+that MIGHT be a security issue and need you to help me verify 
+if it's a genuine, reportable vulnerability or just a normal 
+configuration.
+
+MY FINDING:
+[PASTE YOUR FINDING HERE - e.g. "sudo -l shows (ALL:ALL) ALL 
+for my user"]
+
+COMMAND OUTPUT / EVIDENCE:
+[PASTE THE EXACT TERMINAL OUTPUT HERE]
+
+Please tell me:
+1. Is this genuinely a security vulnerability, or is it normal/expected 
+   configuration? Be honest and skeptical - don't just agree with me.
+2. What additional command(s) should I run to CONFIRM this is exploitable?
+3. What is the realistic severity (Critical/High/Medium/Low) and why?
+4. What would an attacker actually be able to DO with this?
+5. Is there any chance this is a false positive? Explain what would 
+   make it one.
+
+Be conservative — I would rather NOT submit a false report than 
+submit something that gets rejected.
+```
+
+---
+
+## PROMPT 2 — WRITE A COMPLETE BUG REPORT
+
+```
+I need help writing a professional vulnerability report for a 
+bug bounty competition on BOSS OS (Debian-based government Linux OS).
+
+CONFIRMED FINDING:
+Title (rough idea): [YOUR FINDING TITLE]
+What I found: [DESCRIBE WHAT'S WRONG]
+How I verified it: [COMMANDS YOU RAN]
+Exact terminal output: [PASTE OUTPUT]
+Problem Statement category: [PS-01 to PS-10, or "Others"]
+
+Please write a complete, professional bug report with these 
+EXACT sections:
+
+1. VULNERABILITY TITLE (specific, includes the component and issue)
+2. BOSS OS VERSION (I'll fill in the exact version)
+3. AFFECTED COMPONENT (specific file/service/config)
+4. VULNERABILITY DESCRIPTION (2-4 sentences, clear and technical)
+5. STEPS TO REPRODUCE (numbered, anyone can follow)
+6. PROOF OF CONCEPT (exact commands + exact output format)
+7. IMPACT ASSESSMENT (what can an attacker actually do - be specific 
+   about government/sensitive data risk)
+8. PROPOSED SEVERITY + JUSTIFICATION (Critical/High/Medium/Low 
+   with CVSS 3.1 score and vector string)
+9. SUGGESTED REMEDIATION (exact commands to fix it)
+10. RELEVANT CWE NUMBER (if applicable)
+
+Make the impact section specific to a GOVERNMENT operating system 
+handling sensitive citizen/administrative data — not generic.
+Keep technical accuracy high. Do not exaggerate severity beyond 
+what the evidence supports.
+```
+
+---
+
+## PROMPT 3 — CHAIN MULTIPLE BUGS TOGETHER
+
+```
+I found multiple individual security issues on a Linux system 
+(BOSS OS bug bounty competition) and I think they might combine 
+into a more severe attack chain. Help me figure out if they 
+genuinely chain together, and if so, write a combined report.
+
+MY INDIVIDUAL FINDINGS:
+
+Finding 1: [TITLE] - [SEVERITY] - [BRIEF DESCRIPTION]
+Evidence: [COMMAND OUTPUT]
+
+Finding 2: [TITLE] - [SEVERITY] - [BRIEF DESCRIPTION]  
+Evidence: [COMMAND OUTPUT]
+
+Finding 3: [TITLE] - [SEVERITY] - [BRIEF DESCRIPTION]
+Evidence: [COMMAND OUTPUT]
+
+(add more findings if you have them)
+
+Please:
+1. Tell me HONESTLY if these findings actually chain together into 
+   a real attack path, or if they are unrelated (don't force a 
+   connection that doesn't make sense)
+2. If they DO chain, walk me through the exact attack sequence 
+   step by step
+3. What additional verification should I do to PROVE the chain works 
+   end-to-end (not just theoretically)?
+4. Write a combined vulnerability report following this structure:
+   - Title (describing the full chain)
+   - Individual vulnerabilities in the chain
+   - Steps to reproduce the FULL chain
+   - Proof of concept for each step
+   - Combined impact assessment
+   - Overall severity with justification
+   - Remediation for the whole chain
+
+Be skeptical - if the chain doesn't genuinely hold together, 
+tell me to submit them separately instead.
+```
+
+---
+
+## PROMPT 4 — QUICK COMMAND HELP DURING COMPETITION
+
+```
+I'm in a live Linux security bug bounty competition right now 
+on a Debian-based OS (BOSS OS). I need a quick, safe, READ-ONLY 
+command to check something. Time is limited so keep the answer 
+short and direct.
+
+WHAT I NEED TO CHECK:
+[DESCRIBE WHAT YOU WANT TO VERIFY - e.g. "check if any cron jobs 
+run as root and are writable by my user"]
+
+Requirements:
+- Give me the EXACT command(s) to run, ready to copy-paste
+- The command must be READ-ONLY (no modifying, deleting, or 
+  restarting anything)
+- Briefly explain what the output means (1-2 lines max)
+- If the check requires root/sudo, tell me so
+- Do not explain background theory - I need speed right now
+```
+
+---
+
+## PROMPT 5 — ANALYZE UNKNOWN/CUSTOM SOFTWARE (BOSS-SPECIFIC)
+
+```
+I'm doing a security audit on BOSS OS, an Indian government 
+Debian-based Linux distribution, for a bug bounty competition. 
+I found a package/service/file that seems to be custom to BOSS OS 
+(not standard Debian) and I don't know what it does or if it's 
+a security risk.
+
+WHAT I FOUND:
+Package/service/file name: [NAME]
+Location: [FILE PATH]
+Details I have: [PASTE ANY OUTPUT - e.g. dpkg -L output, 
+file permissions, running process info, config file contents]
+
+Please help me:
+1. Based on the name and details, what does this software likely do?
+2. What security checks should I run specifically on this custom 
+   component? (permissions, running as what user, network exposure, 
+   config weaknesses, etc.)
+3. What commands should I run to investigate deeper?
+4. What would make this a genuine vulnerability vs. just unfamiliar 
+   but safe software?
+5. Since this is custom/unique to BOSS OS, how should I frame this 
+   in a bug report to show it's not a generic/duplicate finding?
+```
+
+---
+
+## PROMPT 6 — CHECK IF MY REPORT IS READY TO SUBMIT
+
+```
+Please review this vulnerability report I wrote for a bug bounty 
+competition (BOSS OS, government Linux distribution) and tell me 
+honestly if it's ready to submit or needs improvement.
+
+MY REPORT:
+[PASTE YOUR FULL DRAFT REPORT HERE]
+
+Please check for:
+1. Is the title specific and clear, or too generic?
+2. Is there enough technical evidence, or does it need more proof?
+3. Are the reproduction steps clear enough that someone else could 
+   follow them exactly?
+4. Is the severity justified by the evidence, or is it 
+   over/under-rated?
+5. Is the impact section specific to a government system, or 
+   too generic/vague?
+6. Is the suggested fix technically correct and complete?
+7. Rate this report 1-10 for "likely to be accepted by judges" 
+   and explain what would make it a 10/10.
+
+Give me a corrected/improved version if anything is weak.
+```
+
+---
+
+## PROMPT 7 — EMERGENCY: I'M STUCK AND DON'T KNOW WHAT TO CHECK NEXT
+
+```
+I'm in hour [X] of a 36-hour Linux security bug bounty competition 
+on BOSS OS (Debian-based government OS). I've already found and 
+verified these things:
+
+[LIST WHAT YOU'VE ALREADY FOUND - even briefly]
+
+I'm covering these problem statement categories:
+[LIST YOUR PS CATEGORIES - e.g. PS-02 Authentication, 
+PS-07 File Permissions, PS-08 Logging]
+
+I feel stuck and don't know what to check next. Based on what 
+I've already found, suggest:
+1. 5 specific, READ-ONLY Linux commands I haven't tried yet that 
+   are likely to reveal something in my assigned categories
+2. One creative angle I might be missing (something beyond the 
+   obvious checklist items)
+3. Whether any of my existing findings could be investigated deeper 
+   for more severe impact
+
+Keep it practical and specific — exact commands I can run right now.
+```
+
+---
+
+## PROMPT 8 — VERIFY SEVERITY / CVSS SCORE
+
+```
+I found this vulnerability on BOSS OS (government Debian-based 
+Linux system) during a bug bounty competition and need an honest, 
+accurate severity assessment.
+
+VULNERABILITY:
+[DESCRIBE THE VULNERABILITY]
+
+EVIDENCE:
+[PASTE YOUR PROOF/COMMAND OUTPUT]
+
+HOW IT'S EXPLOITED:
+[DESCRIBE HOW AN ATTACKER WOULD USE THIS]
+
+Please:
+1. Calculate an accurate CVSS 3.1 score with full vector string
+   (e.g. AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H)
+2. Explain each part of the vector and why you chose that value
+3. Tell me if my initial severity guess is too high, too low, 
+   or accurate: [YOUR GUESS: Critical/High/Medium/Low]
+4. Give me the closest matching CWE number
+5. Be conservative and realistic - don't inflate the score just 
+   because it's a competition
+```
+
+---
+
+## HOW TO USE THESE PROMPTS EFFICIENTLY
+
+1. **Keep this file open** on your phone or a second device during competition
+2. **Copy the whole prompt block** (including the triple backticks content)
+3. **Fill in every [BRACKET]** with your real data before sending
+4. **Paste into any available AI** — Claude, ChatGPT, Gemini, whatever isn't rate-limited
+5. **These prompts work with ZERO conversation history** — the AI doesn't need to know 
+   anything about your competition beforehand, everything needed is in the prompt itself
+
+## BACKUP: IF ALL AI IS UNAVAILABLE
+
+Use your PDF guides and this checklist manually:
+
+```
+BEFORE SUBMITTING ANY BUG, ASK YOURSELF:
+□ Did I actually run the command and see this with my own eyes?
+□ Can I explain in one sentence why this is dangerous?
+□ Would a non-technical government official understand the risk 
+  if I explained it simply?
+□ Do I have the exact terminal output as evidence?
+□ Have I suggested a specific fix, not just "fix this"?
+□ Is my severity rating honest, not exaggerated?
+
+If you can check all 6 boxes — submit it.
+If not — investigate more before submitting.
+```
+
+---
+
+**Team ZeroDay · BOSS OS Bug Bounty 2026 · Go win it! 🏆**
