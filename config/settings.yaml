@@ -1,0 +1,11 @@
+log_level: INFO
+profile_dir: profiles
+output_dir: output
+
+# Per-plugin overrides go here, e.g.:
+# plugins:
+#   installed_packages:
+#     enabled: true
+#     timeout_seconds: 30
+
+disabled_plugins: []
