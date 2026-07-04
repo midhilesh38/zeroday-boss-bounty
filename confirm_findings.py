@@ -43,6 +43,24 @@ BLUE   = '\033[94m'; CYAN   = '\033[96m'; BOLD  = '\033[1m'
 RESET  = '\033[0m'
 
 
+def get_risk_label(finding):
+    """diff_results.json may nest risk info under a sub-key (e.g.
+    'intelligence' or 'classification') rather than a flat 'risk_level'.
+    Check the common shapes before giving up."""
+    if not isinstance(finding, dict):
+        return "unknown"
+    for key in ("risk_level", "risk", "severity"):
+        if finding.get(key):
+            return finding[key]
+    for nest_key in ("intelligence", "classification", "analysis"):
+        nested = finding.get(nest_key)
+        if isinstance(nested, dict):
+            for key in ("risk_level", "risk", "severity"):
+                if nested.get(key):
+                    return nested[key]
+    return "unknown"
+
+
 def run(cmd, timeout=8):
     try:
         r = subprocess.run(cmd, shell=isinstance(cmd, str),
@@ -93,7 +111,7 @@ def verify_new_uid0_account(finding):
             return ConfirmationResult(
                 finding_id=finding.get("finding_id", ""),
                 title=title,
-                original_risk=finding.get("risk_level", ""),
+                original_risk=get_risk_label(finding),
                 status="CONFIRMED",
                 live_evidence=f"getent passwd {username}\n{out}\n"
                                f"UID field = 0, confirmed root-equivalent RIGHT NOW.",
@@ -103,7 +121,7 @@ def verify_new_uid0_account(finding):
             return ConfirmationResult(
                 finding_id=finding.get("finding_id", ""),
                 title=title,
-                original_risk=finding.get("risk_level", ""),
+                original_risk=get_risk_label(finding),
                 status="LIKELY_FALSE_POS",
                 live_evidence=f"getent passwd {username}\n{out}\n"
                                f"UID is NOT 0 currently.",
@@ -113,7 +131,7 @@ def verify_new_uid0_account(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="LIKELY_FALSE_POS",
             live_evidence=f"getent passwd {username}\n(no such account found)",
             note="Account no longer exists -- may have been fixed, or was transient."
@@ -141,7 +159,7 @@ def verify_world_writable_path(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="NEEDS_MANUAL_CHECK",
             live_evidence=f"stat {path} -> could not stat (path may not exist here)",
             note="Path not found on this machine -- verify path resolution manually."
@@ -154,7 +172,7 @@ def verify_world_writable_path(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="CONFIRMED",
             live_evidence=f"stat -c '%a %U %G' {path}\n{out}\n"
                            f"World-writable bit is SET right now.",
@@ -164,7 +182,7 @@ def verify_world_writable_path(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="LIKELY_FALSE_POS",
             live_evidence=f"stat -c '%a %U %G' {path}\n{out}\n"
                            f"World-writable bit is NOT set now.",
@@ -188,7 +206,7 @@ def verify_sshd_directive(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="NEEDS_MANUAL_CHECK",
             live_evidence="`sshd -T` failed or returned nothing "
                           "(may need root, or sshd not installed here).",
@@ -201,7 +219,7 @@ def verify_sshd_directive(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="CONFIRMED",
             live_evidence=f"sshd -T | grep -i {directive}\n" + "\n".join(matching_lines),
             note="Directive confirmed present in the EFFECTIVE running sshd config right now."
@@ -210,7 +228,7 @@ def verify_sshd_directive(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="NEEDS_MANUAL_CHECK",
             live_evidence=f"sshd -T output did not contain a line for '{directive}'",
             note="Directive not found in effective config -- may use a different keyword casing."
@@ -230,7 +248,7 @@ def verify_auditd_missing(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="LIKELY_FALSE_POS",
             live_evidence=f"systemctl is-active auditd -> active",
             note="auditd IS running right now -- original finding may be stale."
@@ -239,7 +257,7 @@ def verify_auditd_missing(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="CONFIRMED",
             live_evidence=f"systemctl is-active auditd -> {active_out or '(inactive/not found)'}\n"
                           f"dpkg -l auditd -> {installed_out or '(not installed)'}",
@@ -263,7 +281,7 @@ def verify_no_firewall(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="CONFIRMED",
             live_evidence=f"nft list ruleset -> empty\n"
                           f"iptables -L -n -> {len(ipt_out.splitlines()) if ipt_out else 0} lines "
@@ -274,7 +292,7 @@ def verify_no_firewall(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="LIKELY_FALSE_POS",
             live_evidence=f"nft rules present: {has_nft_rules}, iptables rules present: {has_ipt_rules}",
             note="Firewall rules ARE present now -- original finding may be stale."
@@ -292,7 +310,7 @@ def verify_empty_password_account(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="NEEDS_MANUAL_CHECK",
             live_evidence="Cannot read /etc/shadow (need root).",
             note="Re-run this analyzer with sudo to verify live."
@@ -308,7 +326,7 @@ def verify_empty_password_account(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="CONFIRMED",
             live_evidence=f"Accounts with empty password field right now: {', '.join(empty_accounts)}",
             note="Confirmed live against /etc/shadow."
@@ -317,7 +335,7 @@ def verify_empty_password_account(finding):
         return ConfirmationResult(
             finding_id=finding.get("finding_id", ""),
             title=title,
-            original_risk=finding.get("risk_level", ""),
+            original_risk=get_risk_label(finding),
             status="LIKELY_FALSE_POS",
             live_evidence="No accounts with empty password field found right now.",
             note="May have been fixed since original scan."
@@ -367,7 +385,7 @@ def confirm_all(findings):
             result = ConfirmationResult(
                 finding_id=f.get("finding_id", f.get("id", "unknown")),
                 title=f.get("title", "Untitled finding"),
-                original_risk=f.get("risk_level", f.get("severity", "unknown")),
+                original_risk=get_risk_label(f),
                 status="NEEDS_MANUAL_CHECK",
                 live_evidence="No automated live re-verification exists for this finding type.",
                 note="Verify by hand using the original finding's suggested verification commands."
