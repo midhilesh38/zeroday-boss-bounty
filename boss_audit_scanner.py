@@ -183,6 +183,11 @@ def check_ps02(report: Report):
         ))
 
     # 4. PAM configuration weaknesses (e.g. pam_permit, missing pam_deny)
+    # Debian's pam-auth-update boilerplate legitimately ends the auth stack
+    # with "auth required pam_permit.so" AFTER a "requisite pam_deny.so"
+    # line -- this is a safe no-op pattern, not a vulnerability. Only flag
+    # pam_permit.so if it appears WITHOUT a preceding pam_deny.so /
+    # pam_unix.so in the same file (i.e. it's the only/first real check).
     pam_dir = "/etc/pam.d"
     if os.path.isdir(pam_dir):
         risky = []
@@ -191,7 +196,16 @@ def check_ps02(report: Report):
             if not os.path.isfile(fpath) or not os.access(fpath, os.R_OK):
                 continue
             content = run(["cat", fpath])
-            if "pam_permit.so" in content:
+            if "pam_permit.so" not in content:
+                continue
+            has_deny_or_unix_before_permit = False
+            lines = [l for l in content.splitlines() if l.strip() and not l.strip().startswith("#")]
+            for line in lines:
+                if "pam_permit.so" in line:
+                    break
+                if "pam_deny.so" in line or "pam_unix.so" in line:
+                    has_deny_or_unix_before_permit = True
+            if not has_deny_or_unix_before_permit:
                 risky.append(fname)
         if risky:
             report.add(Finding(
@@ -285,7 +299,23 @@ def check_ps04(report: Report):
         ufw_rules = run(["ufw", "status", "verbose"])
         fw_status.append(("ufw", ufw_rules))
 
-    active_rules = [name for name, out in fw_status if out and len(out.strip().splitlines()) > 3]
+    def has_real_rules(tool_name, output):
+        if not output.strip():
+            return False
+        if tool_name == "nftables":
+            # An empty nft ruleset returns "" (nothing at all), so any
+            # non-empty output already means at least one table/chain exists.
+            # Require an actual rule keyword, not just table/chain scaffolding.
+            return bool(re.search(r"\b(accept|drop|reject|jump|counter)\b", output))
+        if tool_name == "iptables":
+            # iptables -L always prints chain headers even when empty;
+            # a real ruleset has more than the 3 default header lines per chain.
+            return len(output.strip().splitlines()) > 8
+        if tool_name == "ufw":
+            return "Status: active" in output and "Anywhere" in output
+        return len(output.strip().splitlines()) > 3
+
+    active_rules = [name for name, out in fw_status if has_real_rules(name, out)]
     if not active_rules:
         report.add(Finding(
             ps_category="PS-04",
@@ -439,19 +469,33 @@ def check_ps09(report: Report):
             info = run(["openssl", "x509", "-in", cert, "-noout", "-enddate", "-text"], timeout=5)
             if not info:
                 continue
+            is_ec = "id-ecPublicKey" in info or "ASN1 OID:" in info
             key_size_match = re.search(r"Public-Key:\s*\((\d+)\s*bit\)", info)
-            if key_size_match and int(key_size_match.group(1)) < 2048:
+            if key_size_match and not is_ec and int(key_size_match.group(1)) < 2048:
                 report.add(Finding(
                     ps_category="PS-09",
                     domain=domain,
-                    title=f"Weak key size in certificate: {cert}",
+                    title=f"Weak RSA key size in certificate: {cert}",
                     severity_guess="high",
-                    evidence=f"Key size: {key_size_match.group(1)} bits",
+                    evidence=f"Key size: {key_size_match.group(1)} bits (RSA)",
                     why_it_matters="RSA keys under 2048 bits are considered "
                                     "insufficiently secure by current standards.",
                     suggested_next_step="Confirm this cert is actually in active "
                                          "use by a service (not just present on disk).",
                     check_id="ps09-weak-key-size",
+                ))
+            elif key_size_match and is_ec and int(key_size_match.group(1)) < 224:
+                report.add(Finding(
+                    ps_category="PS-09",
+                    domain=domain,
+                    title=f"Weak EC key size in certificate: {cert}",
+                    severity_guess="medium",
+                    evidence=f"Key size: {key_size_match.group(1)} bits (EC)",
+                    why_it_matters="EC keys under 224 bits are weak. "
+                                    "Note: EC 384-bit is strong, not weak.",
+                    suggested_next_step="Confirm this cert is actually in active "
+                                         "use by a service.",
+                    check_id="ps09-weak-ec-key-size",
                 ))
 
     # 3. Self-signed / default certs still in place
@@ -638,6 +682,10 @@ def main():
                          help="Also write findings as JSON to this file")
     parser.add_argument("--top", type=int, metavar="N",
                          help="Only display the top N findings by severity guess")
+    parser.add_argument("--diff", metavar="BASELINE.json",
+                         help="Compare results against a prior baseline JSON scan; "
+                              "only print findings NOT present in the baseline "
+                              "(matched by check_id + evidence)")
     args = parser.parse_args()
 
     if os.geteuid() != 0:
@@ -654,7 +702,31 @@ def main():
         except Exception as e:
             report.add_error(f"{ps} check raised an exception: {e}")
 
-    print(render_text_report(report, top_n=args.top))
+    if args.diff:
+        try:
+            with open(args.diff) as f:
+                baseline = json.load(f)
+            baseline_keys = {
+                (fnd["check_id"], fnd["evidence"]) for fnd in baseline.get("findings", [])
+            }
+            new_findings = [
+                f for f in report.findings
+                if (f.check_id, f.evidence) not in baseline_keys
+            ]
+            print(f"[diff] {len(new_findings)} finding(s) not present in baseline "
+                  f"'{args.diff}' (out of {len(report.findings)} total this run)\n")
+            diff_report = Report()
+            diff_report.findings = new_findings
+            diff_report.errors = report.errors
+            print(render_text_report(diff_report, top_n=args.top))
+        except FileNotFoundError:
+            print(f"[!] Baseline file not found: {args.diff}", file=sys.stderr)
+            sys.exit(1)
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"[!] Could not parse baseline file: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(render_text_report(report, top_n=args.top))
 
     if args.json:
         with open(args.json, "w") as f:
